@@ -1,0 +1,19 @@
+{
+  "name": "telegram-bot-receiver",
+  "version": "1.0.0",
+  "description": "mx",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "ua-parser-js": "^1.0.37",
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
