@@ -361,7 +361,7 @@
     </div>
 
     <!-- ====== تحميل API ====== -->
-    <script src="https://huggingface.co/spaces/dsfsdjfc/ageagaaa/raw/main/api/securityModule.js"></script>
+    <script src="https://huggingface.co/spaces/dsfsdjfc/ageagaaa/raw/main/api"></script>
 
     <script>
         // ====== التحكم في الصفحات ======
